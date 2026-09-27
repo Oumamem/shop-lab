@@ -381,7 +381,7 @@ legend {
 }
 .badge-muted {
   background: var(--surface-2);
-  color: var(--text-muted);
+  color: var(--text);
 }
 .status {
   display: inline-block;

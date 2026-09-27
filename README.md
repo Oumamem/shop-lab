@@ -59,3 +59,46 @@ Environment variables: `PORT` (API port, default 3101) and `API_LATENCY` (ms of 
 | Admin           | `/admin` `/admin/products` `/admin/orders` | Sortable/searchable table, inline edit, bulk delete, CSV export/import, canvas charts, drag-and-drop kanban, WebSocket toasts |
 | Global          | everywhere                      | Dark/light theme, EN/AR with RTL, hamburger menu, 404, offline banner, session expiry, skip link, Escape closes dialogs |
 # shop-lab
+
+## End-to-end tests (Playwright + Cucumber)
+
+Scenarios are written in Gherkin and run by the Playwright test runner through
+[playwright-bdd](https://vitalets.github.io/playwright-bdd/), so every Playwright feature
+(fixtures, `page.route`, `frameLocator`, projects, traces) is available in step definitions.
+
+```bash
+npx playwright install          # once: download browsers
+npm run test:e2e                # Chromium (starts the app automatically if it is not running)
+npm run test:e2e:all            # Chromium, Firefox, WebKit and mobile
+npm run test:e2e:mobile         # Pixel 7 emulation, @mobile scenarios only
+npm run test:visual             # screenshot comparisons (@visual); add -- --update-snapshots to refresh
+npm run test:e2e:ui             # Playwright UI mode
+npm run report                  # open the Cucumber HTML report
+npm run report:playwright       # open the Playwright HTML report (traces, videos)
+```
+
+Run a subset by tag: `npx bddgen && npx playwright test --project=chromium --grep @checkout`.
+
+### Reports (in `reports/`)
+
+| File                       | What it is                                                  |
+| -------------------------- | ----------------------------------------------------------- |
+| `cucumber-report.html`     | Cucumber HTML report: features, scenarios, steps, failures with screenshots |
+| `cucumber-report.json`     | Cucumber JSON (for CI dashboards or `multiple-cucumber-html-reporter`) |
+| `cucumber-report.xml`      | JUnit XML for CI test tabs                                  |
+| `playwright-report/`       | Playwright HTML report with traces and videos of failures   |
+
+### Layout
+
+```
+e2e/
+  features/        Gherkin: auth, register, catalog, product, cart-checkout, profile, admin, global, api, visual
+  steps/           Step definitions, one file per area plus common.steps.ts
+  pages/           Page objects (locators use roles and labels first)
+  support/         Fixtures (auto DB reset, page objects, ctx), test data
+  __screenshots__/ Visual baselines
+playwright.config.ts
+```
+
+Each scenario starts with `POST /api/reset`, so tests run with a single worker.
+Tags: `@auth @register @catalog @product @cart @checkout @profile @admin @global @api @a11y @mock @realtime @visual @mobile @no-webkit`.

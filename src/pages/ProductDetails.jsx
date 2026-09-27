@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { useCart } from '../context/CartContext.jsx';
 import { useAuth } from '../context/AuthContext.jsx';
@@ -121,6 +121,7 @@ export default function ProductDetails() {
   const [color, setColor] = useState(null);
   const [qty, setQty] = useState(1);
   const [error, setError] = useState('');
+  const zoomButtonRef = useRef(null);
 
   useEffect(() => {
     const ctrl = new AbortController();
@@ -186,7 +187,7 @@ export default function ProductDetails() {
 
       <div className="product-layout">
         <section className="gallery" aria-label="Product images">
-          <button type="button" className="gallery-main" onClick={() => setZoomOpen(true)} aria-label="Zoom image">
+          <button ref={zoomButtonRef} type="button" className="gallery-main" onClick={() => setZoomOpen(true)} aria-label="Zoom image">
             <img src={product.images[imageIndex]} alt={`${product.name}, view ${imageIndex + 1} of ${product.images.length}`} width="600" height="600" data-testid="main-image" />
           </button>
           <ul className="thumbnails">
@@ -276,7 +277,7 @@ export default function ProductDetails() {
         ]}
       />
 
-      <Modal open={zoomOpen} onClose={() => setZoomOpen(false)} title={`${product.name} – image ${imageIndex + 1}`} size="lg">
+      <Modal open={zoomOpen} onClose={() => setZoomOpen(false)} returnFocusRef={zoomButtonRef} title={`${product.name} – image ${imageIndex + 1}`} size="lg">
         <div className="zoom-view">
           <img src={product.images[imageIndex]} alt={`${product.name}, enlarged view ${imageIndex + 1}`} />
           <div className="zoom-nav">

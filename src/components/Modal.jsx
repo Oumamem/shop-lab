@@ -4,13 +4,14 @@ import { createPortal } from 'react-dom';
 const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 // Accessible dialog: Escape closes, focus is trapped inside, and focus returns to the opener.
-export default function Modal({ open, onClose, title, children, footer, size = 'md', className = '' }) {
+// Pass returnFocusRef when the opener may not hold focus (Safari does not focus buttons on click).
+export default function Modal({ open, onClose, title, children, footer, size = 'md', className = '', returnFocusRef }) {
   const titleId = useId();
   const ref = useRef(null);
 
   useEffect(() => {
     if (!open) return;
-    const opener = document.activeElement;
+    const opener = returnFocusRef?.current || document.activeElement;
     const node = ref.current;
     (node.querySelector('[autofocus]') || node.querySelector(FOCUSABLE) || node).focus();
     document.body.classList.add('modal-open');
