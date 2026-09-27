@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Secure payment</title>
+    <style>
+      :root {
+        --bg: #ffffff; --fg: #111827; --muted: #6b7280; --border: #d1d5db; --accent: #4f46e5; --error: #b91c1c; --ok: #15803d; --field: #ffffff;
+      }
+      :root[data-theme='dark'] {
+        --bg: #111827; --fg: #f3f4f6; --muted: #9ca3af; --border: #374151; --accent: #818cf8; --error: #f87171; --ok: #4ade80; --field: #1f2937;
+      }
+      * { box-sizing: border-box; }
+      body { margin: 0; padding: 16px; font: 15px/1.5 system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif; background: var(--bg); color: var(--fg); }
+      .secure { display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--muted); margin: 0 0 12px; }
+      .field { margin-bottom: 12px; }
+      label { display: block; font-weight: 600; margin-bottom: 4px; font-size: 14px; }
+      input { width: 100%; padding: 10px 12px; font: inherit; border: 1px solid var(--border); border-radius: 8px; background: var(--field); color: var(--fg); }
+      input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+      input[aria-invalid='true'] { border-color: var(--error); }
+      .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+      .error { color: var(--error); font-size: 13px; margin: 4px 0 0; }
+      .brand { font-size: 13px; color: var(--muted); margin: 4px 0 0; min-height: 1em; }
+      button { padding: 10px 16px; font: inherit; font-weight: 600; border: 0; border-radius: 8px; background: var(--accent); color: #fff; cursor: pointer; }
+      button:disabled { opacity: 0.6; cursor: wait; }
+      .success { color: var(--ok); font-weight: 600; }
+    </style>
+  </head>
+  <body>
+    <p class="secure"><span aria-hidden="true">🔒</span> Secure payment powered by ShopLab Pay (test mode)</p>
+    <form id="card-form" novalidate aria-label="Card details">
+      <div class="field">
+        <label for="holder">Name on card</label>
+        <input id="holder" name="holder" autocomplete="cc-name" />
+        <p class="error" id="holder-error" hidden></p>
+      </div>
+      <div class="field">
+        <label for="number">Card number</label>
+        <input id="number" name="number" inputmode="numeric" autocomplete="cc-number" placeholder="1234 1234 1234 1234" maxlength="23" aria-describedby="brand" />
+        <p class="brand" id="brand" aria-live="polite"></p>
+        <p class="error" id="number-error" hidden></p>
+      </div>
+      <div class="row">
+        <div class="field">
+          <label for="expiry">Expiry date (MM/YY)</label>
+          <input id="expiry" name="expiry" inputmode="numeric" autocomplete="cc-exp" placeholder="MM/YY" maxlength="5" />
+          <p class="error" id="expiry-error" hidden></p>
+        </div>
+        <div class="field">
+          <label for="cvc">Security code (CVC)</label>
+          <input id="cvc" name="cvc" inputmode="numeric" autocomplete="cc-csc" placeholder="123" maxlength="4" />
+          <p class="error" id="cvc-error" hidden></p>
+        </div>
+      </div>
+      <button type="submit" id="save">Save card</button>
+      <p class="success" id="status" role="status"></p>
+    </form>
+    <script>
+      const params = new URLSearchParams(location.search);
+      document.documentElement.dataset.theme = params.get('theme') === 'dark' ? 'dark' : 'light';
+
+      const $ = (id) => document.getElementById(id);
+      const digits = (s) => s.replace(/\D/g, '');
+
+      function brandOf(num) {
+        if (/^4/.test(num)) return 'Visa';
+        if (/^(5[1-5]|2[2-7])/.test(num)) return 'Mastercard';
+        if (/^3[47]/.test(num)) return 'American Express';
+        return '';
+      }
+
+      function luhn(num) {
+        let sum = 0;
+        for (let i = 0; i < num.length; i++) {
+          let d = Number(num[num.length - 1 - i]);
+          if (i % 2) { d *= 2; if (d > 9) d -= 9; }
+          sum += d;
+        }
+        return sum % 10 === 0;
+      }
+
+      $('number').addEventListener('input', (e) => {
+        const d = digits(e.target.value).slice(0, 19);
+        e.target.value = d.replace(/(.{4})/g, '$1 ').trim();
+        $('brand').textContent = brandOf(d) ? `Detected: ${brandOf(d)}` : '';
+      });
+      $('expiry').addEventListener('input', (e) => {
+        const d = digits(e.target.value).slice(0, 4);
+        e.target.value = d.length > 2 ? `${d.slice(0, 2)}/${d.slice(2)}` : d;
+      });
+      $('cvc').addEventListener('input', (e) => (e.target.value = digits(e.target.value).slice(0, 4)));
+
+      function setError(field, message) {
+        const input = $(field);
+        const el = $(`${field}-error`);
+        el.textContent = message || '';
+        el.hidden = !message;
+        if (message) {
+          input.setAttribute('aria-invalid', 'true');
+          input.setAttribute('aria-describedby', `${field}-error${field === 'number' ? ' brand' : ''}`);
+        } else {
+          input.removeAttribute('aria-invalid');
+          if (field === 'number') input.setAttribute('aria-describedby', 'brand');
+          else input.removeAttribute('aria-describedby');
+        }
+        return !message;
+      }
+
+      $('card-form').addEventListener('submit', (e) => {
+        e.preventDefault();
+        $('status').textContent = '';
+        const holder = $('holder').value.trim();
+        const number = digits($('number').value);
+        const [mm, yy] = $('expiry').value.split('/');
+        const cvc = $('cvc').value;
+
+        const now = new Date();
+        const month = Number(mm);
+        const year = 2000 + Number(yy);
+        let expiryError = '';
+        if (!/^\d{2}\/\d{2}$/.test($('expiry').value) || month < 1 || month > 12) expiryError = 'Enter a valid expiry date (MM/YY)';
+        else if (year < now.getFullYear() || (year === now.getFullYear() && month < now.getMonth() + 1)) expiryError = 'This card has expired';
+
+        const results = [
+          setError('holder', holder.length < 2 ? 'Enter the name shown on the card' : ''),
+          setError('number', number.length < 13 ? 'Enter a complete card number' : !luhn(number) ? 'This card number is not valid' : ''),
+          setError('expiry', expiryError),
+          setError('cvc', !/^\d{3,4}$/.test(cvc) ? 'Enter a 3 or 4 digit security code' : ''),
+        ];
+        if (results.includes(false)) {
+          document.querySelector('[aria-invalid="true"]')?.focus();
+          return;
+        }
+
+        $('save').disabled = true;
+        $('save').textContent = 'Saving…';
+        setTimeout(() => {
+          const card = { holder, brand: brandOf(number) || 'Card', last4: number.slice(-4), expiry: $('expiry').value, token: `tok_${Math.random().toString(36).slice(2, 12)}` };
+          $('status').textContent = `Card ending in ${card.last4} saved`;
+          $('save').disabled = false;
+          $('save').textContent = 'Save card';
+          parent.postMessage({ type: 'shoplab:card-saved', card }, location.origin);
+        }, 300);
+      });
+    </script>
+  </body>
+</html>
